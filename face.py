@@ -13,6 +13,16 @@ from flask_marshmallow import Marshmallow # Flask + marshmallow for beautiful AP
 from functools import wraps
 from database import User,Token,Enroll,Upload
 from flask_cors import CORS, cross_origin
+#Liviness Detection
+from random import randint
+from imutils import paths
+from skimage.feature import greycomatrix,greycoprops
+from skimage.measure import label,regionprops
+from sklearn.model_selection import train_test_split
+import numpy as np
+import cv2,time,os
+import pandas as pd
+################################################
 auth = HTTPBasicAuth()
 authToken = HTTPTokenAuth(scheme='Token')
 
@@ -153,7 +163,7 @@ def token_generate():
             awsUser=result.username
             awsPartition=result.partition
         #encode all  return data to the  token
-        token=jwt.encode({'awsPartition': awsPartition,'callID': callID,'awsUser': awsUser, 'awsTask': awsTask,'exp' : datetime.datetime.utcnow()+ datetime.timedelta(minutes=10)},app.config['SECRET_KEY'])
+        token=jwt.encode({'awsPartition': awsPartition,'callID': callID,'awsUser': awsUser, 'awsTask': awsTask,'exp' : datetime.datetime.utcnow()+ datetime.timedelta(minutes=1000)},app.config['SECRET_KEY'])
         # return jsonify({'token': token.decode('UTF-8')}), 201
         return token.decode('UTF-8')
     
@@ -198,7 +208,7 @@ def LargePersonGroup(current_data):
     response = requests.request("PUT",url, data=payload, headers=headers, params=params)
     responseValue=response.text
     if not responseValue:
-        return make_response( jsonify({'msg': 'Partition was Created successfully'}), 200)
+        return make_response( jsonify({'msg': 'LPG Partition was Created successfully'}), 200)
     else:
         return jsonify(response.json())
     
@@ -280,7 +290,7 @@ def delete_lpg(current_data):
 
   #LargePersonGroup - Train : The training task is an asynchronous task.
 
-@app.route('/app/api/v1.0/lgp/train',methods=['POST'])
+@app.route('/app/api/v1.0/face/train',methods=['POST'])
 @token_required # securing the api route with generated token 
 def LargePersonGroupTrain(current_data):
     subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
@@ -303,7 +313,7 @@ def LargePersonGroupTrain(current_data):
     
 #GET train Status
 
-@app.route('/app/api/v1.0/lgp/train/status',methods=['GET'])
+@app.route('/app/api/v1.0/face/train/status',methods=['GET'])
 @token_required # securing the api route with generated token 
 def get_train_status(current_data):
     subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
@@ -463,9 +473,11 @@ def get_upload(current_data):
     
 
 
+#####################################################################################################################################
+#                                        LARGEPERSON GROUP ENROLLMENT 
+#
+######################################################################################################################################
 
-
-#CREATE - LargePersonGroup Person - Create and add face (Enroll)
 
 @app.route('/app/api/v1.0/enroll',methods=['POST'])
 @token_required # securing the api route with generated token 
@@ -492,66 +504,43 @@ def Person_create(current_data):
     else:
        #return jsonify({'awsPersonId':awsPersonId})
        ImgUrls=Upload.query.filter_by(callID = current_data['callID'],partition=current_data['awsPartition']).order_by(desc(Upload.id)).limit(1).all()
-       for ImgUrl in ImgUrls:
-             
-            #ADDING FACE TO A PERSON GROUP CREATED
-            AddFaceUrl = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/"+current_data['awsPartition']+"/persons/"+awsPersonId+"/persistedfaces"
-            image_url=ImgUrl.Image
-            data = {'url': image_url}
-            FaceResponse = requests.request("POST",AddFaceUrl,  headers=headers,  json=data)
-            Awsresults=FaceResponse.json()
-            awspersistedFaceId= Awsresults['persistedFaceId']
+       if len(ImgUrls)==0:
+          return make_response( jsonify({'msg': 'Invalid Token : can not perform Enrollment '}), 403)
+       else:
+           for ImgUrl in ImgUrls:
+                 
+                #ADDING FACE TO A PERSON GROUP CREATED
+                AddFaceUrl = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/"+current_data['awsPartition']+"/persons/"+awsPersonId+"/persistedfaces?detectionModel=detection_01"
+                image_url=ImgUrl.Image
+                data = {'url': image_url}
+                FaceResponse = requests.request("POST",AddFaceUrl,  headers=headers,  json=data)
+                Awsresults=FaceResponse.json()
+                awspersistedFaceId= Awsresults['persistedFaceId']
+        
+                EnrollData=Enroll(partition=current_data['awsPartition'],personId=awsPersonId,callID=current_data['callID'],persistedFaceId=awspersistedFaceId,task=current_data['awsTask'])
+                db.session.add(EnrollData)
+                db.session.commit()
+                msg = "Enrollment successfully"
 
-    
-            EnrollData=Enroll(partition=current_data['awsPartition'],personId=awsPersonId,callID=current_data['callID'],persistedFaceId=awspersistedFaceId,task=current_data['awsTask'])
-            db.session.add(EnrollData)
-            db.session.commit()
-            msg = "Enrollment successfully"
+                #Return Enroment successfully but keep processing Training 
 
-            #Return Enroment successfully but keep processing Training 
-            
-
-            #Train Pratition for Identify 
-            TrainUrl = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/"+current_data['awsPartition']+"/train"
-            responseTrain = requests.request("POST",TrainUrl, headers=headers)
-            responseValue=responseTrain.text
-            if not responseValue:
-                 return jsonify({'msg': msg}), 201
-            else:
-                 return jsonify({'error': responseValue})
+                #Train Pratition for Identify 
+                TrainUrl = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/"+current_data['awsPartition']+"/train"
+                responseTrain = requests.request("POST",TrainUrl, headers=headers)
+                responseValue=responseTrain.text
+                if not responseValue:
+                     return jsonify({'msg': msg}), 201
+                else:
+                     return jsonify({'error': responseValue})
            #On successful personid is generated...this personId will be use to add a face which perform enrollment
     
 
+#####################################################################################################################################
+#                                        LARGEPERSON GROUP IDENTIFICATION
+#
+######################################################################################################################################
 
 
-@app.route('/app/api/v1.0/qualitycheck', methods=['POST']) 
-@token_required # securing the api route with generated token
-def get_qualitycheck(current_data):
-    subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
-
-    image_url = 'https://biotest.appmartgroup.com//assets/enroll/Api_pull/ASID254804002.png'
-    face_api_url = 'https://westeurope.api.cognitive.microsoft.com/face/v1.0/detect'
-
-    #Parameter to pass
-    headers = {'Ocp-Apim-Subscription-Key': subscription_key}
-    params = {
-        'returnFaceId': 'true',
-        'returnFaceLandmarks': 'true',
-        'returnFaceAttributes': 'age,gender,headPose,smile,facialHair,glasses,' +
-        'emotion,hair,makeup,occlusion,accessories,blur,exposure,noise'
-    }
-
-    data = {'url': image_url}
-
-    response = requests.post(face_api_url, params=params, headers=headers, json=data)
-    return jsonify(response.json())
-
-
-
-
-
-
-#IDENTIFY Person Within a Large Person Group 
 
 @app.route('/app/api/v1.0/identy', methods=['POST']) 
 @token_required # securing the api route with generated token
@@ -563,7 +552,7 @@ def get_identify(current_data):
 
     #Parameter to pass
     headers = {'Ocp-Apim-Subscription-Key': subscription_key}
-
+    results = []
     faceIds=Upload.query.filter_by(callID = current_data['callID'],partition=current_data['awsPartition']).order_by(desc(Upload.id)).limit(1).all()
     if len(faceIds)==0:
         return make_response( jsonify({'msg': 'Invalid Token : can not perform identification '}), 403)
@@ -572,15 +561,76 @@ def get_identify(current_data):
             payload = "{\r\n    \"largePersonGroupId\": \""+ current_data['awsPartition']+"\",\r\n    \"faceIds\": [\r\n        \""+faceId.faceId+"\"\r\n    ],\r\n    \"maxNumOfCandidatesReturned\": 20,\r\n  \"confidenceThreshold\": \"0.1\"\r\n}"
             #payload = "{\r\n    \"largePersonGroupId\": \"sample_group\",\r\n    \"faceIds\": [\r\n        \"c5c24a82-6845-4031-9d5d-978df9175426\"\r\n    ],\r\n    \"maxNumOfCandidatesReturned\": 1,\r\n    \"confidenceThreshold\": 0.5\r\n}"
             response = requests.request("POST",url, data=payload, headers=headers)
-
             #Return All Matching Record 
-            return jsonify(response.json())
+            # return jsonify(response.json())
+            faces=response.json()
+            #Return All Matching Record 
+            for face in faces:
+                for x in range(len(face['candidates'])):
+                    score=face['candidates'][x]['confidence']
+                    personId=face['candidates'][x]['personId']
+               
+                    Awsface=Enroll.query.filter_by(personId=personId,partition=current_data['awsPartition']).limit(1).all()
+                    for faceA in Awsface:
+                        Matches = {
+                        'score' : score,
+                        'classID' : faceA.callID,
+                        'storage' : 'aws',
+                        'personId' : faceA.personId
+                    
+                         }
+                    results.append(Matches)
+            return jsonify({'Matches' :results})
+
+
+#####################################################################################################################################
+#                                        LARGEPERSON GROUP VERIFICATION
+#
+######################################################################################################################################
 
 
 
+@app.route('/app/api/v1.0/verify', methods=['POST']) 
+@token_required # securing the api route with generated token
+def get_verify(current_data):
+    subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
 
 
-#CREATE - LargePersonGroup Person - Create and add face (Enroll)IN USED
+    url = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/verify"
+
+    #Parameter to pass
+    headers = {'Ocp-Apim-Subscription-Key': subscription_key}
+    faceIds=Upload.query.filter_by(callID = current_data['callID'],partition=current_data['awsPartition']).order_by(desc(Upload.id)).limit(1).all()
+    if len(faceIds)==0:
+        return make_response( jsonify({'msg': 'Invalid Token : can not perform Verification '}), 403)
+    else:
+       for faceId in faceIds:
+           
+            Awsface=Enroll.query.filter_by(callID = current_data['callID'],partition=current_data['awsPartition']).limit(1).all()
+            if len(Awsface)==0:
+               return make_response( jsonify({'msg': 'Invalid call: PersonId Not Found '}), 403)
+            else:
+                for faceA in Awsface:
+                    
+                    #payload = "{\r\n    \"largePersonGroupId\": \""+ current_data['awsPartition']+"\",\r\n    \"faceId\": [\r\n        \""+faceId.faceId+"\"\r\n    ],\r\n    \"personId\": "+faceA.personId+"\r\n }"
+                    payload = "{\r\n    \"faceId\": \""+faceId.faceId+"\",\r\n    \r\n    \"personId\": \""+faceA.personId+"\",\r\n   \"largePersonGroupId\": \""+ current_data['awsPartition']+"\",\r\n    }"
+                    response = requests.request("POST",url, data=payload, headers=headers)
+                    #Return All Matching Record 
+                    faces=response.json() 
+                    return jsonify({'Matches' :faces})
+               
+                
+
+
+#####################################################################################################################################
+#                                        FACE SIMILARTITY  
+#
+######################################################################################################################################          
+
+#####################################################################################################################################
+#                                        FACE SIMILARTITY ENROLLMENT  
+#
+######################################################################################################################################
 
 @app.route('/app/api/v1.0/face/enroll',methods=['POST'])
 @token_required # securing the api route with generated token 
@@ -626,9 +676,11 @@ def Face_create(current_data):
        #On successful personid is generated...this personId will be use to add a face which perform enrollment
 
 
+#####################################################################################################################################
+#                                        FACE SIMILARTITY  IDENIFICATION
+#
+######################################################################################################################################
 
-
-#IDENTIFY Person Within a Large Person Group 
 
 @app.route('/app/api/v1.0/face/identy', methods=['POST']) 
 @token_required # securing the api route with generated token
@@ -667,7 +719,10 @@ def face_identify(current_data):
             
 
             
-
+#####################################################################################################################################
+#                                        END  BIOMETRIC CALLS
+#
+######################################################################################################################################
 
 
 
@@ -726,7 +781,259 @@ def get_AWSupload(current_data):
     
     
     return jsonify({"Accepted": True}), 201
+    
+#####################################################################################################################################
+#                                        BIOMETRIC ENROLL FOR FACESREACH DEMO API
+#
+######################################################################################################################################
+
+
+@app.route('/app/api/v1.0/demo/upload', methods=['POST']) 
+@token_required # securing the api route with generated token
+def get_uploadDemo(current_data):
+    
+    subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
+    image_url = "http://aws.appmartgroup.com/upload/199513704389471.png"
+    face_api_url = 'https://westeurope.api.cognitive.microsoft.com/face/v1.0/detect'
+
+    #Parameter to pass
+    headers = {
+    'Content-Type': 'application/json',
+    'Ocp-Apim-Subscription-Key': subscription_key
+    }
+    params = {
+        'returnFaceId': 'true',
+        'returnFaceAttributes': 'blur,exposure,noise'
+    }
+
+    data = {'url': image_url}
+
+    response = requests.post(face_api_url, params=params, headers=headers, json=data)
+    results=response.json()
+    awsfaceId= results[0]
+    if not awsfaceId['faceId']:
+        return jsonify({ "Accepted": False, "Error":'No Face Found'}),403
+    else:
+       #return jsonify({'awsPersonId':awsPersonId})
+       UploadData=Upload(partition=current_data['awsPartition'],faceId=awsfaceId['faceId'],callID=current_data['callID'],Image=image_url,personId=awsfaceId['faceId'],task=current_data['awsTask'] )
+       db.session.add(UploadData)
+       db.session.commit()
+       msg = "Upload successfully"
+       return jsonify({"Accepted": True}), 201
+
+
+
+
+#ENROLL
+@app.route('/app/api/v1.0/faceT/enroll',methods=['POST'])
+@token_required # securing the api route with generated token 
+def Person_create_nultrain(current_data):
+    subscription_key = "689818b8d4eb48268ec6bb29c04daebb"
+    url = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/largePersonGroupId/persons"
+    
+      #Parameter to pass
+    headers = {
+    # Request headers
+    'Content-Type': 'application/json',
+    'Ocp-Apim-Subscription-Key': subscription_key,
+     'cache-control': "no-cache"
+    }
+    payload = "{\r\n    \"name\": \"Aws\",\r\n    \"userData\": \"No data attached .\"\r\n}"
+    params  = {"largePersonGroupId": current_data['awsPartition']}
+    
+    response = requests.request("POST",url, data=payload, headers=headers, params=params)
+    results=response.json()
+
+    awsPersonId= results['personId']
+    if not awsPersonId:
+        return jsonify({'msg': results})
+    else:
+       #return jsonify({'awsPersonId':awsPersonId})
+       ImgUrls=Upload.query.filter_by(callID = current_data['callID'],partition=current_data['awsPartition']).order_by(desc(Upload.id)).limit(1).all()
+       for ImgUrl in ImgUrls:
+             
+            #ADDING FACE TO A PERSON GROUP CREATED
+            AddFaceUrl = "https://westeurope.api.cognitive.microsoft.com/face/v1.0/largepersongroups/"+current_data['awsPartition']+"/persons/"+awsPersonId+"/persistedfaces"
+            image_url=ImgUrl.Image
+            data = {'url': image_url}
+            FaceResponse = requests.request("POST",AddFaceUrl,  headers=headers,  json=data)
+            Awsresults=FaceResponse.json()
+            awspersistedFaceId= Awsresults['persistedFaceId']
+
+    
+            EnrollData=Enroll(partition=current_data['awsPartition'],personId=awsPersonId,callID=current_data['callID'],persistedFaceId=awspersistedFaceId,task=current_data['awsTask'])
+            db.session.add(EnrollData)
+            db.session.commit()
+            msg = "Enrollment successfully"
+            return jsonify({'msg': msg}), 201
+            #Return Enroment successfully but keep processing Training 
+            
+    
+
+#####################################################################################################################################
+#                                        LIVINESS DECTION
+#
+######################################################################################################################################
+
+# Perform Images ANALYING 
+@app.route('/app/api/v1.0/face/liveness', methods=['POST']) 
+@token_required # securing the api route with generated token
+def get_Liveness(current_data):
+    
+#Start Liveness extraction and detection
+    haarfile = "haarcascade_frontalface_alt.xml"
+    facedetectfile = cv2.CascadeClassifier(haarfile)
+    final = []
+    index=1
+    path = "upload/"+str(current_data['awsPartition'])+ str(current_data['callID']) +str(index)+".png"
+    #path = 'upload/19950112656553181.png'
+    if (path):  # WHEN WEBCAM IS OPENED
+       
+        frame = cv2.imread(path)
+        image_grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)#CONVERT IMAGE TO GRAY SCALE
+        faces = facedetectfile.detectMultiScale(image_grey)
+
+        for x, y, w, h in faces:
+            sub_img = frame[y - 10:y + h + 10, x - 10:x + w + 10]
+            os.chdir("Face_Extracted")
+            cv2.imwrite(str(current_data['awsPartition'])+ str(current_data['callID']) +str(index)+ ".png", sub_img) # SAVE AND RENAME THE FACE REGION
+
+            # EXTRACTING THE FEATURES NOW FROM THE CROPPED IMAGE OF ONLY FRONTAL FACE         
+            #print(int(faces[40, 40]))
+            #Calculate the luminance with the face pixels
+
+            
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+            #cv2.imshow("Frame", frame)
+            #sub_img = cv2.resize(sub_img,256,256)
+    ##########################################################################
+            r = sub_img[110, 90, 0]
+            g = sub_img[110, 70, 1]
+            b = sub_img[110, 90, 2]
+            # LUMINANCE FACTOR
+            luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b)
+            
+            #############################################################
+            #Cassifer
+            histogram = [0] * 3
+            for j in range(3):
+                histr = cv2.calcHist([frame], [j], None, [256], [0, 256])
+                histr *= 255.0 / histr.max()
+                histogram[j] = histr
+                #print('histogram :')
+            ycrcb_hist= np.array(histogram)
+            img_ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+
+           
+
+            ### MEAN RGB VALUE FOR LIVENESS DETECTION
+            a = np.asarray(sub_img)
+            image__mean = np.mean(sub_img, axis=0)
+            
+
+            ## SKEWNESS - STANDARD DEVIATION,TOTAL DATA_POINTS,MEAN OF DATA
+            y_bar = np.mean(sub_img, axis=0)
+            #print()
+            variance = np.var(a)
+            sd = np.std(a)
+            sdp_mean=np.std(image__mean)
+            img_ycrcb_std= np.std(img_ycrcb)
+
+            gray_image = cv2.cvtColor(sub_img, cv2.COLOR_BGR2GRAY)
+            data_points = cv2.countNonZero(gray_image)
+            lumm=int(round(luminance))
+            #IMAGE BLUR calculating image bluriness
+            fm = cv2.Laplacian(image_grey, cv2.CV_64F).var()
+            #print("Blurry No: "+str(fm))
+            ##########
+            if (data_points > 15000 and lumm < 250 and variance > 2050 and sdp_mean < img_ycrcb_std and fm > 100
+            ):
+                #print(lumm)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0,255, 0), 2)
+                sub_img = frame[y - 10:y + h + 10, x - 10:x + w + 10]
+                os.chdir("Original_Extracted")
+                cv2.imwrite(str(current_data['awsPartition'])+ str(current_data['callID']) +str(index)+ ".png", sub_img)
+                
+                return jsonify({"Accepted": True }), 201
+                
+                
+            else:
+                
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                sub_img = frame[y - 10:y + h + 10, x - 10:x + w + 10]
+                os.chdir("Fake_Extracted")
+                cv2.imwrite(str(current_data['awsPartition'])+ str(current_data['callID']) +str(index)+ ".png", sub_img)
+                return jsonify({"Accepted": False,"luminance" : lumm,"Data Points": data_points}), 200
+
+          
+
+#####################################################################################################################################
+#                                        END BIOMETRIC ALL OPERATION 
+#
+######################################################################################################################################
+
+#####################################################################################################################################
+#                                        OTHER API CALLS FROM  MICROSOFT
+#
+######################################################################################################################################
+
    
+
+#CreateLargePerson
+@app.route('/app/api/v1.0/news',methods=['GET'])
+#@token_required # securing the api route with generated token 
+def BingNews():
+    if not request.args or not 'q' in request.args:
+        abort(400)
+    searchItem=request.args['q']
+    subscription_key = "c5831a096cf2435c9fc4384e5af012c4"
+    search_url = "https://api.cognitive.microsoft.com/bing/v7.0/news/search"
+    search_term = searchItem
+    #name=request.args['name'];
+      #Parameter to pass
+    headers = {"Ocp-Apim-Subscription-Key": subscription_key}
+   
+
+    params = {"q": search_term}
+    #response = requests.get(search_url, headers=headers, params=params)
+    response = requests.request("GET",search_url, headers=headers, params=params)
+    responseValue=response.text
+    if not responseValue:
+        return make_response( jsonify({'msg': 'Generate successfully'}), 200)
+    else:
+        return jsonify(response.json())
+
+    # response = requests.request("PUT",url, data=payload, headers=headers, params=params)
+    # responseValue=response.text
+    # if not responseValue:
+    #     return make_response( jsonify({'msg': 'Partition was Created successfully'}), 200)
+    # else:
+    #     return jsonify(response.json())
+    
+#Trending
+@app.route('/app/api/v1.0/news/category',methods=['GET'])
+#@token_required # securing the api route with generated token 
+def BingTrendNews():
+    if not request.args or not 'q' in request.args:
+        abort(400)
+    searchItem=request.args['q']
+    subscription_key = "c5831a096cf2435c9fc4384e5af012c4"
+    search_url = "https://api.cognitive.microsoft.com/bing/v7.0/news"
+    search_term = searchItem
+    #name=request.args['name'];
+      #Parameter to pass
+    headers = {"Ocp-Apim-Subscription-Key": subscription_key}
+   
+
+    params = {"Category": search_term}
+    #response = requests.get(search_url, headers=headers, params=params)
+    response = requests.request("GET",search_url, headers=headers, params=params)
+    responseValue=response.text
+    if not responseValue:
+        return make_response( jsonify({'msg': 'Generate successfully'}), 200)
+    else:
+        return jsonify(response.json())
 # This set dbug mode to enable reload new changes add to your app
 if __name__=='__main__':
     app.run()

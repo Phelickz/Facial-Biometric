@@ -1,0 +1,33 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+
+ERROR - 2019-05-27 08:21:13 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:13 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:13 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:14 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:14 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:28 --> 404 Page Not Found: User/assets
+ERROR - 2019-05-27 08:21:28 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:28 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:28 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:29 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:37 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:37 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:37 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:21:38 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:22:11 --> 404 Page Not Found: Report/assets
+ERROR - 2019-05-27 08:22:11 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:22:11 --> 404 Page Not Found: Assets/enroll
+ERROR - 2019-05-27 08:22:11 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:22:11 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:22:12 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:58:38 --> 404 Page Not Found: Assets/enroll
+ERROR - 2019-05-27 08:58:38 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 08:58:38 --> 404 Page Not Found: Assets/web
+ERROR - 2019-05-27 09:03:00 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:36:45 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:36:52 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:36:56 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:37:05 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:37:18 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:37:23 --> 404 Page Not Found: /index
+ERROR - 2019-05-27 15:37:42 --> 404 Page Not Found: /index

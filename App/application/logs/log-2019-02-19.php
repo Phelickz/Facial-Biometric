@@ -1,0 +1,29 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+
+ERROR - 2019-02-19 07:16:43 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:43 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:43 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:43 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:44 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:44 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:44 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Report/assets
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/enroll
+ERROR - 2019-02-19 07:16:49 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:50 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:57 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:57 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:57 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:57 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:58 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:16:59 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:17:16 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:17:16 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:17:16 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:17:16 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:17:17 --> 404 Page Not Found: Assets/web
+ERROR - 2019-02-19 07:53:46 --> 404 Page Not Found: Assets/web

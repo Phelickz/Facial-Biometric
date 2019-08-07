@@ -1,0 +1,28 @@
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    padding: 2px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#div1{
+width: 800px
+}
+#div2{
+width: 850px
+}
+#div3{
+width: 850px;
+margin:20px;
+}
+.fd{
+	font-size: 13px;
+	color: #933D3D;
+	font-wight:bold;
+	
+}
